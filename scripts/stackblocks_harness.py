@@ -27,6 +27,7 @@ class SetupStatusWindow:
     def __init__(self):
         self.root = None
         self.label = None
+        self.was_shown = False
 
     def show(self, message):
         if self.root is None:
@@ -51,6 +52,7 @@ class SetupStatusWindow:
             self.label.pack(expand=True, fill="both")
         else:
             self.label.config(text=message)
+        self.was_shown = True
         self.root.update_idletasks()
         self.root.update()
 
@@ -80,6 +82,7 @@ def write_setup_log(message, log_path=None):
 def ensure_playwright(log_path=None, show_window=True):
     """Install Playwright and Chromium on first use when they are missing."""
     status_window = SetupStatusWindow() if show_window else None
+    setup_ok = False
     write_setup_log("checking dependency: playwright", log_path)
     try:
         if importlib.util.find_spec("playwright") is None:
@@ -105,9 +108,18 @@ def ensure_playwright(log_path=None, show_window=True):
             write_setup_log("installing browser: playwright chromium", log_path)
             subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
         write_setup_log("dependency check complete", log_path)
+        setup_ok = True
         return imported_sync_playwright
+    except Exception:
+        if status_window and status_window.was_shown:
+            status_window.show("설치 중 오류가 발생했습니다.\n잠시 후 오류 내용을 확인해 주세요.")
+            time.sleep(5)
+        raise
     finally:
         if status_window:
+            if setup_ok and status_window.was_shown:
+                status_window.show("설치가 완료되었습니다.\nAlgeoMath를 여는 중입니다.")
+                time.sleep(2)
             status_window.close()
 
 
