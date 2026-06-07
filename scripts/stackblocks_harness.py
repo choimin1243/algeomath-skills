@@ -23,25 +23,44 @@ import traceback
 from pathlib import Path
 
 
-def ensure_playwright():
+def default_setup_log_path():
+    return Path.home() / ".codex" / "tmp" / "algeomath-stackblocks-setup.log"
+
+
+def write_setup_log(message, log_path=None):
+    line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}"
+    print(line, flush=True)
+    path = Path(log_path) if log_path else default_setup_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def ensure_playwright(log_path=None):
     """Install Playwright and Chromium on first use when they are missing."""
+    write_setup_log("checking dependency: playwright", log_path)
     if importlib.util.find_spec("playwright") is None:
+        write_setup_log("installing dependency: playwright", log_path)
         subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
     try:
         from playwright.sync_api import sync_playwright as imported_sync_playwright
     except ImportError:
+        write_setup_log("installing dependency: playwright", log_path)
         subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
         from playwright.sync_api import sync_playwright as imported_sync_playwright
 
+    write_setup_log("checking browser: playwright chromium", log_path)
     with imported_sync_playwright() as p:
         executable = Path(p.chromium.executable_path)
     if not executable.exists():
+        write_setup_log("installing browser: playwright chromium", log_path)
         subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+    write_setup_log("dependency check complete", log_path)
 
     return imported_sync_playwright
 
 
-sync_playwright = ensure_playwright()
+sync_playwright = None
 
 
 DEFAULT_COLORS = {1: 0xD89A52, 2: 0xD8893C, 3: 0xC9792F, 4: 0xB96828, 5: 0xA95A20}
@@ -391,6 +410,10 @@ def launch_detached_chromium(playwright, port=None):
 
 
 def inject(height_map=None, blocks=None, cases=None, gap=3, screenshot=None, log_path=None, keep_open=True):
+    global sync_playwright
+    if sync_playwright is None:
+        sync_playwright = ensure_playwright(log_path)
+
     log_file = Path(log_path) if log_path else None
 
     def log(message):
@@ -485,6 +508,7 @@ def main():
     parser.add_argument("--log", help="Optional log path.")
     parser.add_argument("--reset", action="store_true", help="Accepted for compatibility; the scene is replaced on load.")
     parser.add_argument("--close", action="store_true", help="Close browser after injection.")
+    parser.add_argument("--setup-only", action="store_true", help="Check/install dependencies and exit without opening AlgeoMath.")
     parser.add_argument(
         "--print-coordinates",
         action="store_true",
@@ -493,6 +517,10 @@ def main():
     args = parser.parse_args()
 
     try:
+        if args.setup_only:
+            ensure_playwright(args.log)
+            return
+
         if args.cases:
             cases = parse_cases(args.cases)
             if args.print_coordinates:
