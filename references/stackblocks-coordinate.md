@@ -9,9 +9,10 @@ Use this only when placing or explaining AlgeoMath Kids 3D stack-block coordinat
 - `z`: bottom to top; `z=1` is the floor layer.
 - Height map item `[x,y,h]` expands to blocks `(x,y,1)` through `(x,y,h)`.
 - Judge left/right/front/back/up from the image before using layer counts.
-- Layer counts validate a model; they do not determine the footprint by themselves.
+- Layer counts are reference information; they do not determine the footprint by themselves.
 - Ask for the front side when direction is ambiguous.
 - Do not create floating cubes.
+- If multiple arrangements fit the prompt, keep every plausible arrangement and show all of them in AlgeoMath.
 
 ## Image Analysis Protocol
 
@@ -23,10 +24,8 @@ Use this only when placing or explaining AlgeoMath Kids 3D stack-block coordinat
 2. Count footprint width and depth. Never collapse a 2D footprint into a single row.
 3. Count the height at each ground position.
 4. Build `[[x,y,h], ...]` or explicit `[[x,y,z], ...]` blocks.
-5. Verify:
-   - Front view: max height for each `x`.
-   - Side view: max height for each `y`.
-   - Top view: occupied footprint and column heights.
+5. Place the result directly in AlgeoMath. Skip separate verification unless the user asks for it.
+6. For multiple possible answers, place all cases side by side with a visible gap.
 
 ## AlgeoMath Conversion
 
@@ -40,7 +39,13 @@ position = (col+0.5, -(row+0.5), layer-0.5)
 Prefer explicit block coordinates when accuracy matters:
 
 ```powershell
-python "C:\Users\choi2\.codex\skills\algeomath\scripts\stackblocks_harness.py" --blocks '[[x,y,z], ...]' --print-coordinates
+pythonw "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" --blocks '[[x,y,z], ...]'
+```
+
+Show multiple possible height maps in one open AlgeoMath 3D window:
+
+```powershell
+pythonw "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" --cases '[[[x,y,h], ...], [[x,y,h], ...]]' --gap 4
 ```
 
 ## Common Patterns

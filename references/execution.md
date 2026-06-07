@@ -4,40 +4,40 @@ Open this only when you need to run the local scripts.
 
 ## Stack Blocks
 
-Preferred flow: compute exact block coordinates first, then inject them directly.
+Preferred flow: compute stack-block coordinates, inject them into AlgeoMath, and leave the AlgeoMath 3D browser window open for the user.
+
+Do not pass `--close` during normal stack-block work. The harness keeps the browser open by default.
 
 Inject explicit block coordinates:
 
 ```powershell
 pythonw "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" `
-  --blocks '[[x,y,z], ...]' `
-  --screenshot "$env:TEMP\algeomath_stack.png" `
-  --log "$env:TEMP\algeomath_stack.log"
-```
-
-Coordinate check:
-
-```powershell
-python "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" --preset reference-pyramid --print-coordinates
-```
-
-Inject preset:
-
-```powershell
-pythonw "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" `
-  --preset reference-pyramid `
-  --screenshot "$env:TEMP\algeomath_stack.png" `
-  --log "$env:TEMP\algeomath_stack.log"
+  --blocks '[[x,y,z], ...]'
 ```
 
 Inject custom height map:
 
 ```powershell
 pythonw "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" `
-  --height-map '[[x,y,h], ...]' `
-  --screenshot "$env:TEMP\algeomath_stack.png" `
-  --log "$env:TEMP\algeomath_stack.log"
+  --height-map '[[x,y,h], ...]'
 ```
+
+Show every possible case separated in one scene:
+
+```powershell
+pythonw "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" `
+  --cases '[[[x,y,h], ...], [[x,y,h], ...]]' `
+  --gap 4
+```
+
+Inject preset:
+
+```powershell
+pythonw "C:\Users\choi2\.codex\skills\algeomath-skills\scripts\stackblocks_harness.py" `
+  --preset reference-pyramid
+```
+
+Use screenshots, logs, coordinate printing, or `--close` only when the user explicitly asks for verification, diagnostics, or closing the browser.
 
 ## 2D
 
