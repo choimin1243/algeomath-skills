@@ -23,6 +23,47 @@ import traceback
 from pathlib import Path
 
 
+class SetupStatusWindow:
+    def __init__(self):
+        self.root = None
+        self.label = None
+
+    def show(self, message):
+        if self.root is None:
+            try:
+                import tkinter as tk
+            except Exception:
+                return
+            self.root = tk.Tk()
+            self.root.title("AlgeoMath setup")
+            self.root.geometry("440x150")
+            self.root.resizable(False, False)
+            self.root.attributes("-topmost", True)
+            self.label = tk.Label(
+                self.root,
+                text=message,
+                font=("Malgun Gothic", 12),
+                padx=24,
+                pady=28,
+                wraplength=380,
+                justify="center",
+            )
+            self.label.pack(expand=True, fill="both")
+        else:
+            self.label.config(text=message)
+        self.root.update_idletasks()
+        self.root.update()
+
+    def close(self):
+        if self.root is not None:
+            try:
+                self.root.destroy()
+            except Exception:
+                pass
+            self.root = None
+            self.label = None
+
+
 def default_setup_log_path():
     return Path.home() / ".codex" / "tmp" / "algeomath-stackblocks-setup.log"
 
@@ -36,28 +77,38 @@ def write_setup_log(message, log_path=None):
         f.write(line + "\n")
 
 
-def ensure_playwright(log_path=None):
+def ensure_playwright(log_path=None, show_window=True):
     """Install Playwright and Chromium on first use when they are missing."""
+    status_window = SetupStatusWindow() if show_window else None
     write_setup_log("checking dependency: playwright", log_path)
-    if importlib.util.find_spec("playwright") is None:
-        write_setup_log("installing dependency: playwright", log_path)
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
     try:
-        from playwright.sync_api import sync_playwright as imported_sync_playwright
-    except ImportError:
-        write_setup_log("installing dependency: playwright", log_path)
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
-        from playwright.sync_api import sync_playwright as imported_sync_playwright
+        if importlib.util.find_spec("playwright") is None:
+            if status_window:
+                status_window.show("필요 라이브러리를 설치합니다.\n잠시 기다려 주세요.")
+            write_setup_log("installing dependency: playwright", log_path)
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+        try:
+            from playwright.sync_api import sync_playwright as imported_sync_playwright
+        except ImportError:
+            if status_window:
+                status_window.show("필요 라이브러리를 설치합니다.\n잠시 기다려 주세요.")
+            write_setup_log("installing dependency: playwright", log_path)
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+            from playwright.sync_api import sync_playwright as imported_sync_playwright
 
-    write_setup_log("checking browser: playwright chromium", log_path)
-    with imported_sync_playwright() as p:
-        executable = Path(p.chromium.executable_path)
-    if not executable.exists():
-        write_setup_log("installing browser: playwright chromium", log_path)
-        subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
-    write_setup_log("dependency check complete", log_path)
-
-    return imported_sync_playwright
+        write_setup_log("checking browser: playwright chromium", log_path)
+        with imported_sync_playwright() as p:
+            executable = Path(p.chromium.executable_path)
+        if not executable.exists():
+            if status_window:
+                status_window.show("AlgeoMath 자동 배치용 브라우저를 설치합니다.\n처음 한 번만 오래 걸릴 수 있습니다.")
+            write_setup_log("installing browser: playwright chromium", log_path)
+            subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+        write_setup_log("dependency check complete", log_path)
+        return imported_sync_playwright
+    finally:
+        if status_window:
+            status_window.close()
 
 
 sync_playwright = None
