@@ -12,6 +12,7 @@ Route AlgeoMath Kids work while keeping the default context small.
 - 3D stack blocks, cubes, layer counts, or image-based block placement: read `references/stackblocks-coordinate.md`.
 - Running scripts or browser injection: read `references/execution.md`.
 - 2D points, lines, polygons, or coordinate-plane drawings: read `algeo2d.md`.
+- For beginner/teacher setup, use `setup_algeomath.ps1` from `references/execution.md` before automatic browser placement.
 
 ## Stack-Block Core
 

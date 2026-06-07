@@ -13,13 +13,35 @@ Block coordinate convention:
 """
 
 import argparse
+import importlib.util
 import json
+import socket
+import subprocess
 import sys
 import time
 import traceback
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+
+def ensure_playwright():
+    """Install Playwright and Chromium on first use when they are missing."""
+    if importlib.util.find_spec("playwright") is None:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+    try:
+        from playwright.sync_api import sync_playwright as imported_sync_playwright
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+        from playwright.sync_api import sync_playwright as imported_sync_playwright
+
+    with imported_sync_playwright() as p:
+        executable = Path(p.chromium.executable_path)
+    if not executable.exists():
+        subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+
+    return imported_sync_playwright
+
+
+sync_playwright = ensure_playwright()
 
 
 DEFAULT_COLORS = {1: 0xD89A52, 2: 0xD8893C, 3: 0xC9792F, 4: 0xB96828, 5: 0xA95A20}
@@ -324,6 +346,50 @@ def find_poly_frame(page):
     raise RuntimeError("AlgeomathPoly API frame not found")
 
 
+def wait_for_cdp(port, timeout=20):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1):
+                return
+        except OSError:
+            time.sleep(0.25)
+    raise RuntimeError(f"Chromium CDP port did not open: {port}")
+
+
+def find_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def launch_detached_chromium(playwright, port=None):
+    """Launch Chromium independently so the browser can stay open after injection."""
+    port = port or find_free_port()
+    user_data_dir = Path.home() / ".codex" / "tmp" / "algeomath-stackblocks-profile"
+    user_data_dir.mkdir(parents=True, exist_ok=True)
+    executable = playwright.chromium.executable_path
+    creationflags = 0
+    if sys.platform.startswith("win"):
+        creationflags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    proc = subprocess.Popen(
+        [
+            executable,
+            f"--remote-debugging-port={port}",
+            f"--user-data-dir={user_data_dir}",
+            "--no-first-run",
+            "--start-maximized",
+            "about:blank",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        creationflags=creationflags,
+    )
+    wait_for_cdp(port)
+    return proc, port
+
+
 def inject(height_map=None, blocks=None, cases=None, gap=3, screenshot=None, log_path=None, keep_open=True):
     log_file = Path(log_path) if log_path else None
 
@@ -352,9 +418,11 @@ def inject(height_map=None, blocks=None, cases=None, gap=3, screenshot=None, log
         log_detail += f" coordinates={json.dumps(describe_coordinates(height_map), ensure_ascii=False)}"
 
     p = sync_playwright().start()
-    browser = p.chromium.launch(headless=False, args=["--start-maximized"])
+    browser_proc, cdp_port = launch_detached_chromium(p)
+    browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{cdp_port}")
     try:
-        page = browser.new_page()
+        context = browser.contexts[0] if browser.contexts else browser.new_context()
+        page = context.new_page()
         page.set_viewport_size({"width": 1400, "height": 900})
         page.goto(
             "https://www.algeomath.kr/kids/algeomath/poly/make",
@@ -376,13 +444,13 @@ def inject(height_map=None, blocks=None, cases=None, gap=3, screenshot=None, log
         log(log_detail)
         if screenshot:
             log(f"screenshot={screenshot}")
-
-        while keep_open:
-            time.sleep(60)
     finally:
         if not keep_open:
             browser.close()
-            p.stop()
+            browser_proc.terminate()
+        else:
+            browser.disconnect()
+        p.stop()
 
 
 def main():
@@ -415,6 +483,7 @@ def main():
     )
     parser.add_argument("--screenshot", help="Optional screenshot path.")
     parser.add_argument("--log", help="Optional log path.")
+    parser.add_argument("--reset", action="store_true", help="Accepted for compatibility; the scene is replaced on load.")
     parser.add_argument("--close", action="store_true", help="Close browser after injection.")
     parser.add_argument(
         "--print-coordinates",

@@ -6,6 +6,14 @@ Open this only when you need to run the local scripts.
 
 Preferred flow: compute stack-block coordinates, inject them into AlgeoMath, and leave the AlgeoMath 3D browser window open for the user.
 
+## Beginner Setup
+
+For a teacher or first-time user, run the setup script once. It installs Playwright and the Chromium browser used by the automatic AlgeoMath placement script. It is safe to run again because already-installed items are skipped.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\Users\choi2\.codex\skills\algeomath-skills\setup_algeomath.ps1"
+```
+
 Do not pass `--close` during normal stack-block work. The harness keeps the browser open by default.
 
 Inject explicit block coordinates:
